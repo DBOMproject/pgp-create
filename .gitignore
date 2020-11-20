@@ -1,0 +1,7 @@
+.idea
+node_modules
+temp
+coverage
+.nyc_output
+docs/gen
+logfile.log

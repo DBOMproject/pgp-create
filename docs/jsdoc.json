@@ -1,0 +1,22 @@
+{
+  "source": {
+      "include": [
+          "README.md",
+          "app.js",
+          "logger.js"
+      ]
+  },
+  "opts": {
+      "destination": "docs/gen",
+      "recurse": true,
+      "pedantic": true,
+      "template": "./node_modules/minami"
+  },
+  "templates": {
+      "systemName": "Service for generating a pgp signing key",
+      "theme": "cosmo"
+  },
+  "tags": {
+      "allowUnknownTags": false
+  }
+}
