@@ -12,7 +12,7 @@
   "dependencies": {
     "@kubernetes/client-node": "^0.13.0",
     "generate-password": "^1.6.0",
-    "openpgp": "^4.10.4",
+    "openpgp": "^4.10.10",
     "winston": "^3.2.1"
   },
   "devDependencies": {
