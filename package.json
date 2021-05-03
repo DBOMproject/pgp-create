@@ -4,6 +4,7 @@
   "description": "",
   "main": "app.js",
   "scripts": {
+    "preinstall": "npx npm-force-resolutions",
     "test": "echo \"Error: no test specified\" && exit 1",
     "generate-docs": "./node_modules/.bin/jsdoc -c ./docs/jsdoc.json"
   },
@@ -21,5 +22,10 @@
     "eslint-plugin-import": "^2.22.1",
     "jsdoc": "^3.6.5",
     "minami": "^1.2.3"
+  },
+  "resolutions": {
+    "taffydb": "2.7.3",
+    "lodash": "4.17.21",
+    "underscore": "1.13.1"
   }
 }
