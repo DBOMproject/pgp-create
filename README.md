@@ -6,6 +6,7 @@ Running as an init sidecar, the service creates a PGP key, uploads it to a hkp s
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [How to Use](#how-to-use)
+- [Platform Support](#platform-support)
 - [Getting Help](#getting-help)
 - [Getting Involved](#getting-involved)
 
@@ -21,6 +22,11 @@ Running as an init sidecar, the service creates a PGP key, uploads it to a hkp s
 | PGP_KEY_PATH         | /keys                  | path to the keys directory                    |
 | PGP_KEY_TYPE         | ed25519                | The type of pgp key to create                 |
 | PGP_NAMESPACE        | default                | Namespace where the secret is created         |
+
+
+## Platform Support
+
+Currently, we provide pre-built container images for linux amd64 and arm64 architectures via our Github Actions Pipeline. Find the images [here](https://hub.docker.com/r/dbomproject/pgp-create)
 
 ## Getting Help
 
