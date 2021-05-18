@@ -24,6 +24,7 @@ const openpgp = require('openpgp');
 const k8s = require('@kubernetes/client-node');
 const generator = require('generate-password');
 const logger = require('./logger.js');
+const fs = require('fs');
 
 const pgpSecret = process.env.PGP_SECRET || 'pgp-key';
 const pgpKeyType = process.env.PGP_KEY_TYPE || 'ed25519';
@@ -31,6 +32,11 @@ const pgpKeyIDName = process.env.PGP_KEY_ID_NAME || 'Example';
 const pgpKeyIDEmail = process.env.PGP_KEY_ID_EMAIL || 'example@example.com';
 const namespace = process.env.NAMESPACE || 'default';
 const hkpAddress = process.env.HKP_ADDRESS || 'http://localhost:11371';
+const kubernetesDeploymentEnv = process.env.KUBERNETES_DEPLOYMENT || 'false';
+const keyDirectory = process.env.KEY_DIRECTORY || './keys';
+const privateKeyFile = 'private.asc';
+const publicKeyFile = 'public.asc';
+
 
 /**
  * Generates a pgp signing key, uploads it to an hkp server and stores it in a kubernetes secret
@@ -39,37 +45,65 @@ const hkpAddress = process.env.HKP_ADDRESS || 'http://localhost:11371';
  * @name main
  */
 (async () => {
-  const kc = new k8s.KubeConfig();
-  kc.loadFromDefault();
 
-  const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
+  kubernetesDeployment = (kubernetesDeploymentEnv === 'true');
+  keyExists = true;
 
-  // eslint-disable-next-line no-unused-vars
-  k8sApi.readNamespacedSecret(pgpSecret, namespace).then((res) => {
-    logger.info('PGP key already exists');
-  // eslint-disable-next-line no-unused-vars
-  }).catch(async (error) => {
-    logger.info('Creating pgp key');
-    const passphrase = generator.generate({
-      length: 16,
-      numbers: true,
-      symbols: true,
-      lowercase: true,
-      uppercase: true,
-      strict: true,
-    });
-    // eslint-disable-next-line max-len, no-unused-vars
-    const { privateKeyArmored, publicKeyArmored, revocationCertificate } = await openpgp.generateKey({
-      userIds: [{ name: pgpKeyIDName, email: pgpKeyIDEmail }], // you can pass multiple user IDs
-      curve: pgpKeyType, // ECC curve name
-      passphrase, // protects the private key
-    });
+  if (kubernetesDeployment) {
+    logger.info('---- KUBERNETES DEPLOYMENT ----');
+    const kc = new k8s.KubeConfig();
+    kc.loadFromDefault();
+    const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
 
-    const { keys: [publicKey] } = await openpgp.key.readArmored(publicKeyArmored);
-    const hkp = new openpgp.HKP(hkpAddress);
-    hkp.upload(publicKeyArmored).then(() => {
-      logger.info(`Uploaded ${publicKey.getFingerprint()} successfully`);
+    // eslint-disable-next-line no-unused-vars
+    k8sApi.readNamespacedSecret(pgpSecret, namespace).then((res) => {
+      logger.info('PGP key already exists');
+      return 0;
+      // eslint-disable-next-line no-unused-vars
+    }).catch(async (error) => {
+    })
+    keyExists = false;
+  }
+  else {
+    logger.info('---- LOCAL DEPLOYMENT ----');
+    await fs.promises.mkdir(keyDirectory, { recursive: true })
+    publicPath = keyDirectory + "/" + privateKeyFile
+    privatePath = keyDirectory + "/" + publicKeyFile
+    try {
+      if (fs.existsSync(publicPath)) {
+        logger.info('PGP key already exists');
+        return 0;
+      }
+      if (fs.existsSync(privatePath)) {
+        logger.info('PGP key already exists');
+        return 0;
+      }
+    } catch(err) {
+      logger.error(err)
+    }
+  }
+  logger.info('Creating pgp key');
+  const passphrase = generator.generate({
+    length: 16,
+    numbers: true,
+    symbols: true,
+    lowercase: true,
+    uppercase: true,
+    strict: true,
+  });
+  // eslint-disable-next-line max-len, no-unused-vars
+  const { privateKeyArmored, publicKeyArmored, revocationCertificate } = await openpgp.generateKey({
+    userIds: [{ name: pgpKeyIDName, email: pgpKeyIDEmail }], // you can pass multiple user IDs
+    curve: pgpKeyType, // ECC curve name
+    passphrase, // protects the private key
+  });
 
+  const { keys: [publicKey] } = await openpgp.key.readArmored(publicKeyArmored);
+  const hkp = new openpgp.HKP(hkpAddress);
+  hkp.upload(publicKeyArmored).then(() => {
+    logger.info(`Uploaded ${publicKey.getFingerprint()} successfully`);
+
+    if (kubernetesDeployment) {
       const pgpKey = new k8s.V1Secret();
       pgpKey.metadata = new k8s.V1ObjectMeta();
       pgpKey.metadata.name = pgpSecret;
@@ -78,16 +112,24 @@ const hkpAddress = process.env.HKP_ADDRESS || 'http://localhost:11371';
       };
       pgpKey.type = 'Opaque';
       pgpKey.stringData = {
-        'private.asc': privateKeyArmored,
-        'public.asc': publicKeyArmored,
+        privateKeyFile: privateKeyArmored,
+        publicKeyFile: publicKeyArmored,
         password: passphrase,
       };
-
       k8sApi.createNamespacedSecret(namespace, pgpKey).then((res) => {
         logger.info(res.body);
       }).catch((err) => {
         logger.error(err);
       });
-    });
+    } else {
+      fs.writeFile(privatePath, privateKeyArmored, (err) => {
+          if (err) throw err;
+          console.log("Private key saved");
+      }); 
+      fs.writeFile(publicPath, publicKeyArmored, (err) => {
+        if (err) throw err;
+        console.log("Public key saved");
+    }); 
+    }
   });
 })();
