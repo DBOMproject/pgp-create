@@ -23,8 +23,8 @@
 const openpgp = require('openpgp');
 const k8s = require('@kubernetes/client-node');
 const generator = require('generate-password');
-const logger = require('./logger.js');
 const fs = require('fs');
+const logger = require('./logger.js');
 
 const pgpSecret = process.env.PGP_SECRET || 'pgp-key';
 const pgpKeyType = process.env.PGP_KEY_TYPE || 'ed25519';
@@ -36,7 +36,8 @@ const kubernetesDeploymentEnv = process.env.KUBERNETES_DEPLOYMENT || 'false';
 const keyDirectory = process.env.KEY_DIRECTORY || './keys';
 const privateKeyFile = 'private.asc';
 const publicKeyFile = 'public.asc';
-
+const publicPath = `${keyDirectory}/${privateKeyFile}`;
+const privatePath = `${keyDirectory}/${publicKeyFile}`;
 
 /**
  * Generates a pgp signing key, uploads it to an hkp server and stores it in a kubernetes secret
@@ -45,10 +46,8 @@ const publicKeyFile = 'public.asc';
  * @name main
  */
 (async () => {
-
-  kubernetesDeployment = (kubernetesDeploymentEnv === 'true');
-  keyExists = true;
-
+  const kubernetesDeployment = (kubernetesDeploymentEnv === 'true');
+  let keyExists = false;
   if (kubernetesDeployment) {
     logger.info('---- KUBERNETES DEPLOYMENT ----');
     const kc = new k8s.KubeConfig();
@@ -58,30 +57,29 @@ const publicKeyFile = 'public.asc';
     // eslint-disable-next-line no-unused-vars
     k8sApi.readNamespacedSecret(pgpSecret, namespace).then((res) => {
       logger.info('PGP key already exists');
-      return 0;
+      keyExists = true;
       // eslint-disable-next-line no-unused-vars
     }).catch(async (error) => {
-    })
-    keyExists = false;
-  }
-  else {
+    });
+  } else {
     logger.info('---- LOCAL DEPLOYMENT ----');
-    await fs.promises.mkdir(keyDirectory, { recursive: true })
-    publicPath = keyDirectory + "/" + privateKeyFile
-    privatePath = keyDirectory + "/" + publicKeyFile
+    await fs.promises.mkdir(keyDirectory, { recursive: true });
     try {
       if (fs.existsSync(publicPath)) {
         logger.info('PGP key already exists');
-        return 0;
+        keyExists = true;
+        return;
       }
       if (fs.existsSync(privatePath)) {
         logger.info('PGP key already exists');
-        return 0;
+        keyExists = true;
+        return;
       }
-    } catch(err) {
-      logger.error(err)
+    } catch (err) {
+      logger.error(err);
     }
   }
+  if (keyExists) return;
   logger.info('Creating pgp key');
   const passphrase = generator.generate({
     length: 16,
@@ -116,6 +114,9 @@ const publicKeyFile = 'public.asc';
         publicKeyFile: publicKeyArmored,
         password: passphrase,
       };
+      const kc = new k8s.KubeConfig();
+      kc.loadFromDefault();
+      const k8sApi = kc.makeApiClient(k8s.CoreV1Api);
       k8sApi.createNamespacedSecret(namespace, pgpKey).then((res) => {
         logger.info(res.body);
       }).catch((err) => {
@@ -123,13 +124,13 @@ const publicKeyFile = 'public.asc';
       });
     } else {
       fs.writeFile(privatePath, privateKeyArmored, (err) => {
-          if (err) throw err;
-          console.log("Private key saved");
-      }); 
+        if (err) throw err;
+        logger.info('Private key saved');
+      });
       fs.writeFile(publicPath, publicKeyArmored, (err) => {
         if (err) throw err;
-        console.log("Public key saved");
-    }); 
+        logger.info('Public key saved');
+      });
     }
   });
 })();
