@@ -11,7 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@kubernetes/client-node": "^0.14.3",
+    "@kubernetes/client-node": "^0.15.0",
     "generate-password": "^1.6.0",
     "openpgp": "^4.10.10",
     "winston": "^3.2.1"
