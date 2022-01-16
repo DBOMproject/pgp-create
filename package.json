@@ -17,7 +17,7 @@
     "winston": "^3.4.0"
   },
   "devDependencies": {
-    "eslint": "^8.5.0",
+    "eslint": "^8.6.0",
     "eslint-config-airbnb": "^19.0.2",
     "eslint-plugin-import": "^2.24.2",
     "jsdoc": "^3.6.7",
